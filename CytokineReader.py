@@ -521,9 +521,10 @@ def analyze_dots(im, array):
     '''Searches for dots on the array in guessed locations, stores average 
     intensity of each dot in a list
     Inputs:
-        corners: list of coordinates of the measurement area corners
+        array: the cytokine image in array format
+        im: the cytokine image
     Returns:
-        needs_adjustment: true if needs adjustment
+        data: list of each dot's average intensity
     '''
     [upper_left_center, upper_right_center, lower_left_center] = find_alignment_circle_centers(array)
     image = rotate_image(im)
@@ -573,11 +574,6 @@ def main():
     fourth_image = Image.open('CytokineSample4.jpg').convert('L') 
     fourth_array = numpy.asarray(first_image)
     fourth_data = analyze_dots(first_image, first_array)
-    
-    ex = Dispatch("Excel.Application")
-    test_data_1 = [1,2,3,4]
-    test_data_2 = [4,3,2,1]
-    ex.Workbooks.Add()
     
 if __name__ == '__main__':
     main()
