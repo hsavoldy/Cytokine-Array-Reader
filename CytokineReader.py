@@ -558,10 +558,73 @@ def analyze_dots(im, array):
     plt.show()
     return data
 
+def filter_cytokines(arrays):
+    cytokine_dict = {}
+    threshold = 230
+    valid_keys= []
+    final = {}
+    
+    for array in arrays:
+        final = {k: v for k, v in array.items() if v<threshold}
+        valid_keys = valid_keys + list(final.keys())
+    valid_keys.remove("Reference")
+    for i in range(len(arrays)):
+        arrays[i] = {k: v for k, v in arrays[i].items() if (k in valid_keys)}
+    return arrays
+            
+    
+def assign_cytokines(data):
+    cytokine_dict = {}
+    cytokines = mouse_cytokines()
+    data_index=0
+    cytokine_index = 0
+    while (data_index < len(data)-1):
+        cytokine_dict[cytokines[cytokine_index]] = (data[data_index]+data[data_index])/2
+        data_index+=2
+        cytokine_index += 1
+    return cytokine_dict
+
+def mouse_cytokines():
+    '''Gives list of cytokines that correlate to data points.
+    Returns:
+        cytokines: list of cytokines in order of array
+    '''
+    cytokines = ["Reference", "Adiponectin/Acrp30", "Amphiregulin", "Angiopoietin-1", 
+                "Angiopoietin-2", "Angiopoietin-like 3", "BAFF/BLyS/TNFSF13B",
+                "C1qR1/CD93", "CCL2/JE/MCP-1", "CCL3/CCL4/MIP-1α/β", 
+                "CCL5/RANTES", "Reference", "Space", "CCL6/C10", "CCL11/Eotaxin", "CCL12/MCP-5",
+                "CCL17/TARC", "CCL19/MIP-3β", "CCL20/MIP-3α", "CCL21/6Ckine",
+                "CCL22/MDC", "CD14", "CD40/TNFRSF5", "Space", "Space", "CD160", "Chemerin",
+                "Chitinase 3-like 1", "Coagulation Factor III/Tissue Factor",
+                "Complement Component C5/C5a", "Complement Factor D",
+                "C-Reactive Protein/CRP", "CX3CL1/Fractalkine", "CXCL1/KC",
+                "CXCL2/MIP-2", "Space", "CXCL9/MIG", "CXCL10/IP-10", "CXCL11/I-TAC",
+                "CXCL13/BLC/BCA-1", "CXCL16", "Cystatin C", "DKK-1", 
+                "DPPIV/CD26", "EGF", "Endoglin/CD105", "Endostatin", 
+                "Fetuin A/AHSG", "FGF acidic", "FGF-21", "Flt-3 Ligand", 
+                "Gas 6", "G-CSF", "GDF-15", "GM-CSF", "HGF", "ICAM-1/CD54",
+                "IFN-γ", "IGFBP-1", "IGFBP-2", "IGFBP-3", "IGFBP-5", "IGFBP-6",
+                "IL-1α/IL-1F1", "IL-1β/IL-1F3", "IL-1ra/IL-1F3", "IL-2", "IL-3",
+                "IL-4", "IL-5", "IL-6", "IL-7", "IL-10", "IL-11", "IL-12 p40",
+                "IL-13", "IL-15", "IL-17A", "IL-22", "IL-23", "IL-27 p28",
+                "IL-28A/B", "IL-33", "LDL R", "Leptin", "LIF", "Lipocalin-2/NGAL",
+                "LIX", "M-CSF", "MMP-2", "MMP-3", "MMP-9", "Myeloperoxidase",
+                "Osteopontin (OPN)", "Osteoprotegerin/TNFRSF11B",
+                "PD-ECGF/Thymidine phosphorylase", "PDGF-BB", "Pentraxin 2/SAP",
+                "Pentraxin 3/TSG-14", "Periostin/OSF-2", "Pref-1/DLK-1/FA1",
+                "Proliferin", "Proprotein Convertase 9/PCSK9", "RAGE", "RBP4",
+                "Reg3G", "Resistin", "Space", "Reference", "E-Selectin/CD62E", "P-Selectin/CD62P",
+                "Serpin E1/PAI-1", "Serpin F1/PEDF", "Thrombopoietin",
+                "TIM-1/KIM-1/HAVCR", "TNF-α", "VCAM-1/CD106", "VEGF", 
+                "WISP-1/CCN4", "Space"]
+    return cytokines
+    
 def main():
     first_image = Image.open('CytokineSample2.jpg').convert('L') 
     first_array = numpy.asarray(first_image)
     first_data = analyze_dots(first_image, first_array)
+    
+    data = filter_cytokines([assign_cytokines(first_data)])
     
     second_image = Image.open('CytokineSample2.jpg').convert('L') 
     second_array = numpy.asarray(first_image)
