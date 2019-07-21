@@ -518,8 +518,8 @@ def needs_adjustment(corners):
         return False
 
 def analyze_dots(im, array):
-    '''Searches for dots on the array in guessed locations, stores average 
-    intensity of each dot in a list
+    '''Searches for dots on the array in guessed locations; stores average 
+    intensity of each dot in a list.
     Inputs:
         array: the cytokine image in array format
         im: the cytokine image
@@ -558,22 +558,39 @@ def analyze_dots(im, array):
     plt.show()
     return data
 
-def filter_cytokines(arrays):
-    cytokine_dict = {}
+def filter_cytokines(array_cytokine_intensities):
+    '''Find which cytokines appear in any array then filter out each array's 
+    list of cytokines to only include those.
+    Inputs:
+        array_cytokine_intensities: list of dictionaries of each cytokine array's 
+        cytokine name and corresponding intensity value 
+    Returns:
+        array_cytokine_intensities: Input filtered to only include wanted 
+        cytokines
+    '''
     threshold = 230
     valid_keys= []
     final = {}
     
-    for array in arrays:
+    for array in array_cytokine_intensities:
         final = {k: v for k, v in array.items() if v<threshold}
         valid_keys = valid_keys + list(final.keys())
-    valid_keys.remove("Reference")
-    for i in range(len(arrays)):
-        arrays[i] = {k: v for k, v in arrays[i].items() if (k in valid_keys)}
-    return arrays
+        
+    valid_keys = [x for x in valid_keys if x != "Reference"]
+    
+    for i in range(len(array_cytokine_intensities)):
+        array_cytokine_intensities[i] = {k: v for k, v in array_cytokine_intensities[i].items() if (k in valid_keys)}
+    return array_cytokine_intensities
             
     
 def assign_cytokines(data):
+    '''Assign cytokines to intensity values.
+    Inputs:
+        data: list of intensity values
+    Returns:
+        cytokine_dict: dictionary with cytokine names as keys corresponding
+        to intensity values
+    '''
     cytokine_dict = {}
     cytokines = mouse_cytokines()
     data_index=0
@@ -620,23 +637,24 @@ def mouse_cytokines():
     return cytokines
     
 def main():
-    first_image = Image.open('CytokineSample2.jpg').convert('L') 
+    first_image = Image.open('CytokineSample1.jpg').convert('L') 
     first_array = numpy.asarray(first_image)
     first_data = analyze_dots(first_image, first_array)
     
-    data = filter_cytokines([assign_cytokines(first_data)])
-    
     second_image = Image.open('CytokineSample2.jpg').convert('L') 
-    second_array = numpy.asarray(first_image)
-    second_data = analyze_dots(first_image, first_array)
+    second_array = numpy.asarray(second_image)
+    second_data = analyze_dots(second_image, second_array)
     
     third_image = Image.open('CytokineSample3.jpg').convert('L') 
-    third_array = numpy.asarray(first_image)
-    third_data = analyze_dots(first_image, first_array)
+    third_array = numpy.asarray(third_image)
+    third_data = analyze_dots(third_image, third_array)
     
     fourth_image = Image.open('CytokineSample4.jpg').convert('L') 
-    fourth_array = numpy.asarray(first_image)
-    fourth_data = analyze_dots(first_image, first_array)
+    fourth_array = numpy.asarray(fourth_image)
+    fourth_data = analyze_dots(fourth_image, fourth_array)
+    
+    
+    data = filter_cytokines([assign_cytokines(first_data), assign_cytokines(second_data), assign_cytokines(third_data), assign_cytokines(fourth_data)])
     
 if __name__ == '__main__':
     main()
