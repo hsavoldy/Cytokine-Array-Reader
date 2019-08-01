@@ -9,6 +9,7 @@ import numpy
 import matplotlib.pyplot as plt
 import math
 import sys
+import xlsxwriter 
 from win32com.client import Dispatch
 
 space_between_circles = 18;
@@ -554,8 +555,8 @@ def analyze_dots(im, array):
         else:
             vertical_distance += circle_spaces[0]
               
-    plt.imshow(image_marked)
-    plt.show()
+    #plt.imshow(image_marked)
+    #plt.show()
     return data
 
 def filter_cytokines(array_cytokine_intensities):
@@ -568,12 +569,12 @@ def filter_cytokines(array_cytokine_intensities):
         array_cytokine_intensities: Input filtered to only include wanted 
         cytokines
     '''
-    threshold = 230
+    threshold = 25
     valid_keys= []
     final = {}
     
     for array in array_cytokine_intensities:
-        final = {k: v for k, v in array.items() if v<threshold}
+        final = {k: v for k, v in array.items() if v>threshold}
         valid_keys = valid_keys + list(final.keys())
         
     valid_keys = [x for x in valid_keys if x != "Reference"]
@@ -596,7 +597,7 @@ def assign_cytokines(data):
     data_index=0
     cytokine_index = 0
     while (data_index < len(data)-1):
-        cytokine_dict[cytokines[cytokine_index]] = (data[data_index]+data[data_index])/2
+        cytokine_dict[cytokines[cytokine_index]] = round(255-(data[data_index]+data[data_index+1])/2, 2)
         data_index+=2
         cytokine_index += 1
     return cytokine_dict
@@ -636,6 +637,180 @@ def mouse_cytokines():
                 "WISP-1/CCN4", "Space"]
     return cytokines
     
+def create_excel_graph(cytokine_dicts, treatments):
+    # Workbook() takes one, non-optional, argument   
+    # which is the filename that we want to create. 
+    workbook = xlsxwriter.Workbook('cytokineChart.xlsx') 
+  
+    # The workbook object is then used to add new   
+    # worksheet via the add_worksheet() method.  
+    worksheet = workbook.add_worksheet() 
+  
+    # Create a new Format object to formats cells 
+    # in worksheets using add_format() method . 
+  
+    # here we create bold format object . 
+    bold = workbook.add_format({'bold': 1}) 
+  
+    # create a data list . 
+    headings = [''] + treatments
+  
+    data = [list(cytokine_dicts[0].keys())]
+    for i in range(len(cytokine_dicts)):
+        data.append(list(cytokine_dicts[i].values()))
+  
+    # Write a row of data starting from 'A1' 
+    # with bold format. 
+    worksheet.write_row('A1', headings, bold) 
+  
+    # Write a column of data starting from 
+    # A2, B2, C2 respectively. 
+    rows = ['A2', 'B2', 'C2', 'D2', 'E2', 'F2', 'G2', 'H2', 'I2', 'J2', 'K2', "L2"]
+    for i in range(len(cytokine_dicts)+1):
+        worksheet.write_column(rows[i], data[i]) 
+  
+    # Create a chart object that can be added 
+    # to a worksheet using add_chart() method. 
+  
+    # here we create a pie chart object . 
+    chart1 = workbook.add_chart({'type': 'column'}) 
+  
+    # Add a data series to a chart 
+    # using add_series method. 
+    # Configure the first series. 
+    #[sheetname, first_row, first_col, last_row, last_col]. 
+    for i in range(len(treatments)):
+        chart1.add_series({ 
+            'name':       ['Sheet1', 0, i+1], 
+            'categories': ['Sheet1', 1, 0, len(cytokine_dicts[0]),0], 
+            'values':     ['Sheet1', 1, i+1, len(cytokine_dicts[0]), i+1], 
+            }) 
+  
+    # Add a chart title  
+    chart1.set_title({'cytokine': 'intensities'}) 
+  
+    # Set an Excel chart style. Colors with white outline and shadow. 
+    chart1.set_style(2) 
+    
+    chart1.set_size({'x_scale': 2.5, 'y_scale':1.5})
+  
+    # Insert the chart into the worksheet(with an offset). 
+    # the top-left corner of a chart is anchored to cell C2.  
+    worksheet.insert_chart(rows[i+3], chart1) 
+  
+    # Finally, close the Excel file   
+    # via the close() method.   
+    workbook.close()  
+    
+def create_graph(cytokine_dicts, names):
+    
+    #cytokine_dicts = [{'amphiregulin': 45.67, 'angiopiotin':76.98},{'amphiregulin': 189.87, 'angiopiotin':10.87},{'amphiregulin': 84.67, 'angiopiotin':43.90},{'amphiregulin': 12.32, 'angiopiotin':1.92}]
+    
+#     n_groups = 4
+#     means_frank = (90, 55, 40, 65)
+#     means_guido = (85, 62, 54, 20)
+# 
+#     # create plot
+#     fig, ax = plt.subplots()
+#     index = numpy.arange(n_groups)
+#     bar_width = 0.35
+#     opacity = 0.8
+# 
+#     rects1 = plt.bar(index, means_frank, bar_width,
+#                      alpha=opacity,
+#                      color='b',
+#                      label='Frank')
+#     
+    n_groups = len(cytokine_dicts[0])
+    n_cytokines = len(cytokine_dicts)
+    data = []
+    colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
+
+    while(len(colors) < n_groups):
+        colors = colors+colors
+    # create plot
+    fig, ax = plt.subplots()
+    fig.set_size_inches(10, 5)
+    index = numpy.arange(n_groups)
+    
+    #Create graph dimensions
+    bar_width = 0.015
+    same_cytokine_distance = .02
+    space = .06*n_groups
+    
+    opacity = 0.8
+    plt.xlabel('Cytokine')
+    plt.ylabel('Intensity')
+    plt.title('Scores by person')
+    
+    #create cytokine labels
+    start_amount = n_cytokines*(same_cytokine_distance)/2
+    ticks = [.03+space*i for i in range(n_groups)]
+    plt.xticks(ticks, cytokine_dicts[0].keys())
+    
+    plt.legend()
+# 
+#     plt.bar((same_cytokine_distance*0, same_cytokine_distance*0+space), tuple(cytokine_dicts[0].values()), bar_width, 
+#             alpha=opacity,color=colors[0], label=names[0])
+#     plt.show()
+#     plt.bar((same_cytokine_distance*1, same_cytokine_distance*1+space), tuple(cytokine_dicts[1].values()), bar_width, 
+#             alpha=opacity,color=colors[1], label=names[1])
+#     plt.show()
+#     plt.bar((same_cytokine_distance*2, same_cytokine_distance*2+space), tuple(cytokine_dicts[2].values()), bar_width, 
+#             alpha=opacity,color=colors[2], label=names[2])
+#     plt.show()
+#     plt.bar((same_cytokine_distance*3, same_cytokine_distance*3+space), tuple(cytokine_dicts[3].values()), bar_width, 
+#             alpha=opacity,color=colors[3], label=names[3])
+#     plt.show()
+    for i in range(len(names)):
+        plt.bar((same_cytokine_distance*i, same_cytokine_distance*i+space), tuple(cytokine_dicts[i].values()), bar_width, 
+                alpha=opacity,color=colors[i], label=names[i])
+
+    plt.tight_layout()
+    plt.show()
+    print('hey')
+    
+#     array_labels = names
+#     cytokine_labels = list(cytokine_dicts[0].keys())
+#     data_points = []
+#     
+#     fig = plt.figure()
+#     fig, ax = plt.subplots()
+#     
+#     x = numpy.arange(len(array_labels))  # the label locations
+#     width = 0.35  # the width of the bars
+#     rects = []
+#     for i in range(len(array_labels)):
+#         data_points.append(list(cytokine_dicts[i].values()))
+#         rects.append(ax.bar(data_points[i], width, label=array_labels[i]))
+# 
+#     # Add some text for labels, title and custom x-axis tick labels, etc.
+#     ax.set_ylabel('Intensity')
+#     ax.set_title('Intensity of Cytokines')
+#     ax.set_xticks(x)
+#     ax.set_xticklabels(cytokine_labels)
+#     ax.legend()
+# 
+# 
+#     def autolabel(rects):
+#         """Attach a text label above each bar in *rects*, displaying its height."""
+#         for rect in rects:
+#             height = rect.get_height()
+#             ax.annotate('{}'.format(height),
+#                         xy=(rect.get_x() + rect.get_width() / 2, height),
+#                         xytext=(0, 3),  # 3 points vertical offset
+#                         textcoords="offset points",
+#                         ha='center', va='bottom')
+# 
+# 
+#     for rect in rects:
+#         autolabel(rect)
+#     
+#     fig.tight_layout()
+# 
+#     plt.show()
+#     print('done')
+    
 def main():
     first_image = Image.open('CytokineSample1.jpg').convert('L') 
     first_array = numpy.asarray(first_image)
@@ -653,8 +828,9 @@ def main():
     fourth_array = numpy.asarray(fourth_image)
     fourth_data = analyze_dots(fourth_image, fourth_array)
     
+    names = ['DMSO 3TC', 'DMSO', 'Rev 3TC', 'Rev']
     
     data = filter_cytokines([assign_cytokines(first_data), assign_cytokines(second_data), assign_cytokines(third_data), assign_cytokines(fourth_data)])
-    
+    create_excel_graph(data, names)
 if __name__ == '__main__':
     main()
