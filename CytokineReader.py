@@ -3,12 +3,12 @@ Created on Jun 30, 2019
 
 @author: haels
 '''
-
 from PIL import Image
 import numpy
 import matplotlib.pyplot as plt
 import math
 import sys
+import xlsxwriter 
 from win32com.client import Dispatch
 
 space_between_circles = 18;
@@ -554,8 +554,8 @@ def analyze_dots(im, array):
         else:
             vertical_distance += circle_spaces[0]
               
-    plt.imshow(image_marked)
-    plt.show()
+    #plt.imshow(image_marked)
+    #plt.show()
     return data
 
 def filter_cytokines(array_cytokine_intensities):
@@ -568,12 +568,12 @@ def filter_cytokines(array_cytokine_intensities):
         array_cytokine_intensities: Input filtered to only include wanted 
         cytokines
     '''
-    threshold = 230
+    threshold = 25
     valid_keys= []
     final = {}
     
     for array in array_cytokine_intensities:
-        final = {k: v for k, v in array.items() if v<threshold}
+        final = {k: v for k, v in array.items() if v>threshold}
         valid_keys = valid_keys + list(final.keys())
         
     valid_keys = [x for x in valid_keys if x != "Reference"]
@@ -596,7 +596,7 @@ def assign_cytokines(data):
     data_index=0
     cytokine_index = 0
     while (data_index < len(data)-1):
-        cytokine_dict[cytokines[cytokine_index]] = (data[data_index]+data[data_index])/2
+        cytokine_dict[cytokines[cytokine_index]] = round(255-(data[data_index]+data[data_index+1])/2, 2)
         data_index+=2
         cytokine_index += 1
     return cytokine_dict
@@ -636,6 +636,77 @@ def mouse_cytokines():
                 "WISP-1/CCN4", "Space"]
     return cytokines
     
+def create_excel_graph(cytokine_dicts, treatments):
+    '''Creates excel file with column graph and data table.
+    Inputs:
+        cytokine_dicts: list of dictionaries with cytokine names as keys 
+        corresponding to intensity values
+        treatments: list of string treatment names
+    '''
+    # Workbook() takes one, non-optional, argument   
+    # which is the filename that we want to create. 
+    workbook = xlsxwriter.Workbook('cytokineChart.xlsx') 
+  
+    # The workbook object is then used to add new   
+    # worksheet via the add_worksheet() method.  
+    worksheet = workbook.add_worksheet() 
+  
+    # Create a new Format object to formats cells 
+    # in worksheets using add_format() method . 
+  
+    # here we create bold format object . 
+    bold = workbook.add_format({'bold': 1}) 
+  
+    # create a data list . 
+    headings = [''] + treatments
+  
+    data = [list(cytokine_dicts[0].keys())]
+    for i in range(len(cytokine_dicts)):
+        data.append(list(cytokine_dicts[i].values()))
+  
+    # Write a row of data starting from 'A1' 
+    # with bold format. 
+    worksheet.write_row('A1', headings, bold) 
+  
+    # Write a column of data starting from 
+    # A2, B2, C2 respectively. 
+    rows = ['A2', 'B2', 'C2', 'D2', 'E2', 'F2', 'G2', 'H2', 'I2', 'J2', 'K2', "L2"]
+    for i in range(len(cytokine_dicts)+1):
+        worksheet.write_column(rows[i], data[i]) 
+  
+    # Create a chart object that can be added 
+    # to a worksheet using add_chart() method. 
+  
+    # here we create a pie chart object . 
+    chart1 = workbook.add_chart({'type': 'column'}) 
+  
+    # Add a data series to a chart 
+    # using add_series method. 
+    # Configure the first series. 
+    #[sheetname, first_row, first_col, last_row, last_col]. 
+    for i in range(len(treatments)):
+        chart1.add_series({ 
+            'name':       ['Sheet1', 0, i+1], 
+            'categories': ['Sheet1', 1, 0, len(cytokine_dicts[0]),0], 
+            'values':     ['Sheet1', 1, i+1, len(cytokine_dicts[0]), i+1], 
+            }) 
+  
+    # Add a chart title  
+    chart1.set_title({'cytokine': 'intensities'}) 
+  
+    # Set an Excel chart style. Colors with white outline and shadow. 
+    chart1.set_style(2) 
+    
+    chart1.set_size({'x_scale': 2.5, 'y_scale':1.5})
+  
+    # Insert the chart into the worksheet(with an offset). 
+    # the top-left corner of a chart is anchored to cell C2.  
+    worksheet.insert_chart(rows[i+3], chart1) 
+  
+    # Finally, close the Excel file   
+    # via the close() method.   
+    workbook.close()  
+ 
 def main():
     first_image = Image.open('CytokineSample1.jpg').convert('L') 
     first_array = numpy.asarray(first_image)
@@ -653,8 +724,11 @@ def main():
     fourth_array = numpy.asarray(fourth_image)
     fourth_data = analyze_dots(fourth_image, fourth_array)
     
+    names = ['DMSO 3TC', 'DMSO', 'Rev 3TC', 'Rev']
     
     data = filter_cytokines([assign_cytokines(first_data), assign_cytokines(second_data), assign_cytokines(third_data), assign_cytokines(fourth_data)])
+    create_excel_graph(data, names)
+    
     
 if __name__ == '__main__':
     main()
