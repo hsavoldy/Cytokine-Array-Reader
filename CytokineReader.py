@@ -10,6 +10,8 @@ import math
 import sys
 import xlsxwriter 
 from win32com.client import Dispatch
+import glob, os
+
 
 space_between_circles = 18;
 space_between_clusters = 28;
@@ -390,7 +392,7 @@ def find_size_of_dot():
     else:
         closest_odd_number = average_diameter+1
         
-    return math.floor(closest_odd_number*.47)
+    return math.floor(closest_odd_number*.45) #.47
 
 def find_intensity_of_dot(coordinates, array, testArray):
     '''Find the average intensity of the measurement area after the area is 
@@ -436,8 +438,13 @@ def center_dot(array, dot_pixel_locations, area, testArray):
     while((needs_adjustment(corners)) & (counter<50)):
         [corners, area, dot_pixel_locations] = adjust_dot(array, dot_pixel_locations, testArray, corners)
         counter +=1
+        
     for pixel in dot_pixel_locations:
-        testArray[pixel[0], pixel[1]] = 255
+        if(testArray[pixel[0], pixel[1]] == 255): #to avoid accidental overlap
+            return 255
+        else:
+            testArray[pixel[0], pixel[1]] = 255
+        
     return numpy.mean(area)
         
 def adjust_dot(array, dot_pixel_locations, testArray, corners):  
@@ -510,7 +517,7 @@ def needs_adjustment(corners):
     Returns:
         needs_adjustment: true if needs adjustment
     '''
-    epsilon = 10
+    epsilon = 5
     max_difference = max(corners)-min(corners)
     if(max_difference>epsilon):
         return True
@@ -636,7 +643,7 @@ def mouse_cytokines():
                 "WISP-1/CCN4", "Space"]
     return cytokines
     
-def create_excel_graph(cytokine_dicts, treatments):
+def create_excel_graph(cytokine_dicts, treatments, filename):
     '''Creates excel file with column graph and data table.
     Inputs:
         cytokine_dicts: list of dictionaries with cytokine names as keys 
@@ -645,7 +652,7 @@ def create_excel_graph(cytokine_dicts, treatments):
     '''
     # Workbook() takes one, non-optional, argument   
     # which is the filename that we want to create. 
-    workbook = xlsxwriter.Workbook('cytokineChart.xlsx') 
+    workbook = xlsxwriter.Workbook(filename+'.xlsx') 
   
     # The workbook object is then used to add new   
     # worksheet via the add_worksheet() method.  
@@ -706,29 +713,117 @@ def create_excel_graph(cytokine_dicts, treatments):
     # Finally, close the Excel file   
     # via the close() method.   
     workbook.close()  
+     
+def create_list_string(string_list):
+    list_string = ''
+    index = 1
+    for item in string_list:
+        if(index==len(string_list)):
+            list_string = list_string + 'and "' + item + '"'
+        else:
+            list_string = list_string + '"' + item + '", '
+            index += 1
+    return list_string
  
+def name_treatments(names, filenames):
+    prompt = '>'
+    while(True):
+        for name in filenames:
+            print('Enter the treatment label for ' + '"'+name+'"')
+            new_name = input(prompt)
+            if((new_name=='') or (new_name==' ')):
+                names.append(name)
+            else:
+                names.append(new_name)
+        while(True):
+            print('Are the labels ' + create_list_string(names) + ' ok? y/n')
+            okay = input(prompt)
+            if(okay.capitalize()=='Y'):
+                print('Ok.')
+                return
+            elif(okay.capitalize()=='N'):
+                names.clear()
+                break
+            else:
+                print('Please enter either "y" or "n"')
+    
 def main():
-    first_image = Image.open('CytokineSample1.jpg').convert('L') 
-    first_array = numpy.asarray(first_image)
-    first_data = analyze_dots(first_image, first_array)
+
+    prompt = '>'
+
+    print("Hello- welcome to Cytokine Reader!")
     
-    second_image = Image.open('CytokineSample2.jpg').convert('L') 
-    second_array = numpy.asarray(second_image)
-    second_data = analyze_dots(second_image, second_array)
+    files = []
     
-    third_image = Image.open('CytokineSample3.jpg').convert('L') 
-    third_array = numpy.asarray(third_image)
-    third_data = analyze_dots(third_image, third_array)
+    while(True):
+        print("Please enter the directory path (eg. C:\\user\\arrays) of your array images: ")
+        filename = input(prompt).replace('/', "\\")
+        try:
+            os.chdir(filename)
+            break
+        except:
+            print('That is not a valid path. Please make sure you have the correct spellings.')
+        
     
-    fourth_image = Image.open('CytokineSample4.jpg').convert('L') 
-    fourth_array = numpy.asarray(fourth_image)
-    fourth_data = analyze_dots(fourth_image, fourth_array)
+    # TODO handle if directory not found
+    os.chdir(filename)
+    for file in glob.glob("*.jpg"):
+        files.append(file)
+        
+    while(len(files) == 0):
+        print("No JPGs found. Make sure your files are present and in JPG format. \nPlease enter the location of your array images: ")
+        filename = input(prompt)
     
-    names = ['DMSO 3TC', 'DMSO', 'Rev 3TC', 'Rev']
+        os.chdir(filename)
+        for file in glob.glob("*.jpg"):
+            files.append(file)
     
-    data = filter_cytokines([assign_cytokines(first_data), assign_cytokines(second_data), assign_cytokines(third_data), assign_cytokines(fourth_data)])
-    create_excel_graph(data, names)
+    filenames = []
+    for file in files:
+        filenames.append(file.replace('.jpg', ''))
     
+    
+    names = []
+    while(True):
+        print('Would you like to use the JPG filenames as the treatment labels? y/n\nThey are currently: ' + create_list_string(filenames))
+        response = input(prompt)
+        if(response.capitalize() == 'Y'):
+            print('Ok.')
+            names = filenames
+            break
+        elif(response.capitalize() == 'N'):
+            name_treatments(names, filenames)
+            break
+        else:
+            print('Please enter either "y" or "n"')
+    print('Generating...')
+    
+    analyses = []
+    for i in range(len(files)):
+        image = Image.open(files[i]).convert('L') 
+        array = numpy.asarray(image)
+        analyses.append(analyze_dots(image, array))
+        
+    assigned_analyses = []
+    
+    for analysis in analyses:
+        assigned_analyses.append(assign_cytokines(analysis))
+    
+    data = filter_cytokines(assigned_analyses)
+    print('Please name the excel report: ')
+    excel_name = input(prompt)
+    
+    while(len(glob.glob(excel_name+'.xlsx')) != 0):
+        print('A file with this name already exists. Either choose another name or rename the existing file.')
+        print('Please name the excel report: ')
+        excel_name = input(prompt)
+        
+    for file in glob.glob("*.jpg"):
+        files.append(file)
+    
+    create_excel_graph(data, names, excel_name)
+    
+    print("file created")
     
 if __name__ == '__main__':
     main()
